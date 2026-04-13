@@ -1,19 +1,8 @@
-import os
-
-PORT = int(os.environ.get("PORT", 8765))
-
-async def main():
-    async with websockets.serve(handler, "0.0.0.0", PORT):
-        print(f"Servidor rodando na porta {PORT}")
-        await asyncio.Future()
-
 import asyncio
 import websockets
 import json
 import uuid
-
-
-
+import os
 
 players = {}
 connected = set()
@@ -51,10 +40,12 @@ async def handler(websocket):
         connected.remove(websocket)
         del players[player_id]
 
+PORT = int(os.environ.get("PORT", 10000))
+
 async def main():
-    async with websockets.serve(handler, "localhost", 8765):
-        print("Servidor rodando em ws://localhost:8765")
-        await asyncio.Future()  # roda pra sempre
+    async with websockets.serve(handler, "0.0.0.0", PORT):
+        print(f"Servidor rodando na porta {PORT}")
+        await asyncio.Future()
 
 if __name__ == "__main__":
     asyncio.run(main())
