@@ -27,12 +27,13 @@ async def handler(websocket):
 
     except:
         pass
+
     finally:
         connected.remove(websocket)
         if player_id in players:
             del players[player_id]
 
-# 🔁 loop que envia estado constantemente
+
 async def broadcast_loop():
     while True:
         if connected:
@@ -41,18 +42,20 @@ async def broadcast_loop():
                 "players": players
             })
 
-            await asyncio.gather(*[
-                ws.send(state) for ws in connected
-            ], return_exceptions=True)
+            await asyncio.gather(
+                *[ws.send(state) for ws in connected],
+                return_exceptions=True
+            )
 
-        await asyncio.sleep(0.05)  # 20 vezes por segundo
+        await asyncio.sleep(0.05)  # 20 ticks por segundo
+
 
 PORT = int(os.environ.get("PORT", 10000))
 
 async def main():
     async with websockets.serve(handler, "0.0.0.0", PORT):
         print(f"Servidor rodando na porta {PORT}")
-        
+
         await asyncio.gather(
             broadcast_loop(),
             asyncio.Future()
