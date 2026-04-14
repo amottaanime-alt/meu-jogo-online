@@ -30,34 +30,62 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
+# =========================
+# REGISTER
+# =========================
 def register(username, password):
+    print("🧾 REGISTER RAW:", username, password)
+
+    if not username or not password:
+        print("❌ EMPTY DATA")
+        return False
+
     conn = get_conn()
     c = conn.cursor()
 
     try:
+        username = username.strip()
+        password = password.strip()
+
         c.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
             (username, hash_password(password))
         )
+
         conn.commit()
+        print("✔ REGISTER OK")
         return True
-    except:
+
+    except Exception as e:
+        print("❌ REGISTER ERROR:", repr(e))
         return False
+
     finally:
         conn.close()
 
 
+# =========================
+# LOGIN
+# =========================
 def login(username, password):
+    print("🔍 LOGIN TRY:", username, password)
+
+    if not username or not password:
+        print("❌ EMPTY LOGIN DATA")
+        return None
+
     conn = get_conn()
     c = conn.cursor()
 
     c.execute(
         "SELECT id, x, y FROM users WHERE username=? AND password=?",
-        (username, hash_password(password))
+        (username.strip(), hash_password(password.strip()))
     )
 
     result = c.fetchone()
     conn.close()
+
+    print("📦 LOGIN RESULT:", result)
 
     if result:
         return {
@@ -69,6 +97,9 @@ def login(username, password):
     return None
 
 
+# =========================
+# SAVE POSITION
+# =========================
 def save_position(player_id, x, y):
     conn = get_conn()
     c = conn.cursor()
