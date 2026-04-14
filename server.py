@@ -8,7 +8,7 @@ from db import init_db, register, login, save_position
 init_db()
 
 players = {}
-connected = {}  # websocket -> player_id
+connections = {}  # websocket -> player_id
 
 
 # =========================
@@ -16,14 +16,14 @@ connected = {}  # websocket -> player_id
 # =========================
 async def broadcast_loop():
     while True:
-        if connected:
+        if connections:
             state = json.dumps({
                 "type": "state",
                 "players": players
             })
 
             await asyncio.gather(
-                *[ws.send(state) for ws in connected.keys()],
+                *[ws.send(state) for ws in connections.keys()],
                 return_exceptions=True
             )
 
@@ -36,15 +36,26 @@ async def broadcast_loop():
 async def handler(websocket):
     player_id = None
 
+    print("🟢 CONNECTED")
+
     try:
         async for message in websocket:
+
+            print("📩 RAW MESSAGE:", message)
+
             data = json.loads(message)
 
             # =====================
             # REGISTER
             # =====================
-            if data["type"] == "register":
-                success = register(data["username"], data["password"])
+            if data.get("type") == "register":
+
+                username = data.get("username")
+                password = data.get("password")
+
+                print("🧾 REGISTER REQUEST:", username, password)
+
+                success = register(username, password)
 
                 await websocket.send(json.dumps({
                     "type": "register_result",
@@ -55,8 +66,12 @@ async def handler(websocket):
             # =====================
             # LOGIN
             # =====================
-            elif data["type"] == "login":
-                result = login(data["username"], data["password"])
+            elif data.get("type") == "login":
+
+                username = data.get("username")
+                password = data.get("password")
+
+                result = login(username, password)
 
                 if result:
                     player_id = result["id"]
@@ -66,7 +81,7 @@ async def handler(websocket):
                         "y": result["y"]
                     }
 
-                    connected[websocket] = player_id
+                    connections[websocket] = player_id
 
                     await websocket.send(json.dumps({
                         "type": "login_success",
@@ -74,7 +89,12 @@ async def handler(websocket):
                         "x": result["x"],
                         "y": result["y"]
                     }))
+
+                    print("✅ LOGIN OK:", player_id)
+
                 else:
+                    print("❌ LOGIN FAIL")
+
                     await websocket.send(json.dumps({
                         "type": "login_failed"
                     }))
@@ -83,25 +103,26 @@ async def handler(websocket):
             # =====================
             # MOVE
             # =====================
-            elif data["type"] == "move" and player_id:
-                x = data["x"]
-                y = data["y"]
+            elif data.get("type") == "move" and player_id:
 
-                players[player_id]["x"] = x
-                players[player_id]["y"] = y
+                x = data.get("x")
+                y = data.get("y")
 
-                # salva no banco (persistência)
+                players[player_id] = {"x": x, "y": y}
+
                 save_position(player_id, x, y)
 
 
-    except:
-        pass
+    except Exception as e:
+        print("❌ ERROR:", repr(e))
 
     finally:
+        print("🔴 DISCONNECT")
+
         if player_id:
             players.pop(player_id, None)
 
-        connected.pop(websocket, None)
+        connections.pop(websocket, None)
 
 
 # =========================
@@ -112,7 +133,7 @@ PORT = int(os.environ.get("PORT", 10000))
 
 async def main():
     async with websockets.serve(handler, "0.0.0.0", PORT):
-        print(f"Servidor rodando na porta {PORT}")
+        print("🚀 SERVER RUNNING")
 
         await asyncio.gather(
             broadcast_loop(),
